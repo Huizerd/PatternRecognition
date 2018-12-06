@@ -42,5 +42,6 @@ for i = 1:shape(1)
     % Remove noise from the 50x50 matrix.
     cleanedImage = removeNoise(prdatafileAsMatrix);
     % Insert cleaned image into cell array.
-    cleanedImages{i} = cleanedImage;
+    cleanedImages{i,1} = cleanedImage;
+    cleanedImages{i,2} = getnlab(resized(i));
 end
