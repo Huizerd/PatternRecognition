@@ -27,10 +27,20 @@ squared = im_box(sample, [5 5 5 5], 1);
 figure
 show(squared)
 
-% Remove some noise?
-
-% Resize
+%% Resize
 resized = im_resize(squared, [50 50]);
 
 figure
 show(resized)
+
+%% Remove noise from the samples. Warning: takes a while.
+shape = size(resized)
+cleanedImages = {}
+for i = 1:shape(1)
+    % Convert individual image from prdatafile to a 50x50 logical matrix.
+    prdatafileAsMatrix = logical(data2im(resized(i,:)))
+    % Remove noise from the 50x50 matrix.
+    cleanedImage = removeNoise(prdatafileAsMatrix);
+    % Insert cleaned image into cell array.
+    cleanedImages{i} = cleanedImage;
+end
