@@ -9,10 +9,13 @@ clear; close all; clc
 rng('default')
 prwaitbar off
 
+% Add subfolders to path
+addpath(genpath(fileparts(which(mfilename))))
+
 %% Load data
 
 % Show some data, this will load digits 0-9 with 25 examples each
-sample = prnist(0:9, 1:40:1000);
+sample = prnist(0:9, 1:100:1000);
 figure
 show(sample)
 
@@ -29,8 +32,9 @@ show(squared)
 
 % Remove some noise?
 
-% Resize
-resized = im_resize(squared, [50 50]);
-
-figure
-show(resized)
+% Do some rectification?
+for i = 1:size(squared, 1)
+    straight = deslant(data2im(squared(i)));
+    imshow(cat(2, im_resize(data2im(squared(i)), [50 50]), im_resize(straight, [50 50])))
+    pause
+end
