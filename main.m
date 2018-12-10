@@ -16,7 +16,7 @@ addpath(genpath(fileparts(which(mfilename))))
 
 % Show some data, this will load digits 0-9 with 25 examples each
 sample = prnist(0:9, 1:100:1000);
-figure
+figure('Name', 'Sample')
 show(sample)
 
 % Now load all data
@@ -26,15 +26,28 @@ show(sample)
 
 % Make squares
 squared = im_box(sample, [5 5 5 5], 1);
-
-figure
+figure('Name', 'Square')
 show(squared)
 
-% Remove some noise?
+% Resize to (50, 50)
+resized = im_resize(squared, [50 50]);
+figure('Name', 'Correct size')
+show(resized)
 
-% Do some rectification?
-for i = 1:size(squared, 1)
-    straight = deslant(data2im(squared(i)));
-    imshow(cat(2, im_resize(data2im(squared(i)), [50 50]), im_resize(straight, [50 50])))
-    pause
+% Convert to prdataset
+preprocessed = prdataset(resized);
+dummy = zeros(size(preprocessed));
+
+% Denoise and remove slant
+for i = 1:size(resized, 1)
+    clean = remove_noise(data2im(resized(i)));
+    straight = deslant(clean);
+%     dummy(1, :) = reshape(im_resize(straight, [50 50]), 1, size(dummy, 2));
+    dummy(1, :) = reshape(clean, 1, size(dummy, 2));
 end
+
+% Assign to prdataset
+setdata(preprocessed, dummy)
+
+figure('Name', 'Clean')
+show(preprocessed)
