@@ -27,8 +27,6 @@ raw_data = prnist(0:9, 1:5:1000);
 
 %% Preprocess data
 
-% TODO: do we want to binarize again after deslanting?
-
 % Make squares
 squared = im_box(raw_data, [5 5 5 5], 1);
 % figure('Name', 'Square')
@@ -38,7 +36,7 @@ squared = im_box(raw_data, [5 5 5 5], 1);
 image_size = [50 50];
 
 % Denoise and remove slant, then resize
-prep_map = squared * filtim('remove_noise') * filtim('deslant') * im_resize(image_size);
+prep_map = squared * filtim('remove_noise') * filtim('deslant') * im_box([5 5 5 5], 1) * im_resize(image_size);
 
 % Put in empty prdataset
 prep_map = prdataset(prep_map);
@@ -90,8 +88,6 @@ features_hog = setname(features_hog, 'features HOG');
 
 %% Classify
 
-rng('default')
-
 % TODO: clevalf for various features for HOG and PCA as well? Is this even
 %   appropriate for HOG?
 
@@ -106,20 +102,16 @@ rng('default')
 % confmat(getnlab(preprocessed), nlab_out)
 
 % Test various classifiers
-features = {features_pca, features_hog};
-classifiers = {svc, knnc, randomforestc};
-[error, ~, labels_out] = prcrossval(features, classifiers, 5, 1);
-disp(error)
+% features = {features_pca, features_hog};
+% classifiers = {svc, knnc, randomforestc};
+% [error, ~, labels_out] = prcrossval(features, classifiers, 5, 1);
+% disp(error)
 
 % Do classifier evaluation for various training set sizes
-% train_sizes = [10 100 200 500 800];
+% train_sizes = [10 20 100 200];
 % error_train_size = cleval(features, classifiers, train_sizes, 5);
 % figure
 % plote(error_train_size)
-
-%%
-
-% classifiers = {svc, knnc, randomforestc};
 
 % Do classifier evaluation for various feature set sizes
 % feat_size_pca = [1 5 10 50 80 100];
@@ -127,3 +119,13 @@ disp(error)
 % error_feat_size_pca = clevalf(features_pca, classifiers, feat_size_pca, train_test_split, 5);
 % figure
 % plote(error_feat_size_pca)
+
+% Train SVM on HOG features
+classifier = svc(features_hog);
+
+%% Benchmark
+
+% Benchmark using all data
+bench_error = nist_eval('my_rep', classifier, 100);
+disp(bench_error)
+

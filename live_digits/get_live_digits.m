@@ -11,8 +11,6 @@ function live_digits = get_live_digits(scan_dir, image_size)
 %
 % Jesse Hagenaars - 25.12.2018
 
-% TODO: check/think about different sizes of digits
-
 % Load scans and collect info
 scan_files = dir([scan_dir '*.jpg']);
 for i = 1:size(scan_files, 1)
@@ -51,10 +49,11 @@ for i = 1:size(scans, 1)
             % Make square
             square = im_box(double(digits == j), [5 5 5 5], 1);
             
-            % Denoise and remove slant, then resize
+            % Denoise and remove slant, then box (again) and resize
             clean = remove_noise(square);
             straight = deslant(clean);
-            data(j, :) = reshape(im_resize(straight, image_size), 1, prod(image_size));
+            square2 = im_box(straight, [5 5 5 5], 1);
+            data(j, :) = reshape(im_resize(square2, image_size), 1, prod(image_size));
         end
         
         % Assign to cell
