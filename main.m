@@ -7,7 +7,6 @@
 % Clear/close everything, set random seed
 clear; close all; clc
 rng('default')
-% prwaitbar off
 
 % Increase max size of datasets (needed to load all objects)
 prmemory(100e6)
@@ -23,109 +22,87 @@ addpath(genpath(fileparts(which(mfilename))))
 % show(sample)
 
 % Now load all data
-raw_data = prnist(0:9, 1:5:1000);
+raw_data = prnist(0:9, 1:2:1000);
 
 %% Preprocess data
 
-% Make squares
-squared = im_box(raw_data, [5 5 5 5], 1);
-% figure('Name', 'Square')
-% show(squared)
-
-% We want to end up with images of 50x50 pixels
+% Images of 50x50 pixels, with 5 blank rows/columns
 image_size = [50 50];
+blanks = [5 5 5 5];
 
-% Denoise and remove slant, then resize
-prep_map = squared * filtim('remove_noise') * filtim('deslant') * im_box([5 5 5 5], 1) * im_resize(image_size);
+% Do preprocessing
+preprocessed = preprocessing(raw_data, image_size, blanks, true);
 
-% Put in empty prdataset
-prep_map = prdataset(prep_map);
-preprocessed = prdataset(prep_map.data, prep_map.labels);
-preprocessed = setfeatsize(preprocessed, image_size);
-preprocessed = setname(preprocessed, 'preprocessed NIST');
-
-% figure('Name', 'Clean')
-% show(preprocessed)
+% Show some
+figure('Name', 'Preprocessed')
+show(preprocessed)
 
 %% Feature extraction
 
-% TODO: PCA mapping only from training data or also validation data?
-% TODO: try PCA & Fisher together
+% TODO: check whether t_pca is equal to preprocessing * u_pca!
 
-% Do PCA
-eigendigits = 100; % first 50 eigendigits
-pca = pcam(preprocessed, eigendigits);
-% figure
-% show(pca)
-% 
-% % Do Fisher
-% fish = fisherm(preprocessed);
-% figure
-% show(fish)
-% 
-% % Do Karhunen-Loeve
-% kh = klm(preprocessed, 50);
-% figure
-% show(kh)
-% 
-% % Neither of the above seems to work well!
+% Get both untrained and trained PCA mapping
+components = 100; % first 100 components
+[u_pca, t_pca] = get_pca(preprocessed, components, image_size);
 
-% Create PCA prdataset
-features_pca = setdata(preprocessed, preprocessed * pca);
-features_pca = setfeatsize(features_pca, [1 eigendigits]);
-features_pca = setprior(features_pca, getprior(features_pca)); % avoid warnings
-features_pca = setname(features_pca, 'features PCA');
-
-% Set parameters for HOG
-cell_size = [4 4];
+% Show eigendigits
+figure('Name', 'Eigendigits')
+show(t_pca)
 
 % Extract HOG features per image
-features_hog = preprocessed * filtim('extractHOGFeatures', {'CellSize', cell_size});
-
-% Adjust HOG prdataset
-features_hog = setprior(features_hog, getprior(features_hog)); % avoid warnings
-features_hog = setname(features_hog, 'features HOG');
+cell_size = [4 4];
+features_hog = get_hog(preprocessed, cell_size);
 
 %% Classify
 
-% TODO: clevalf for various features for HOG and PCA as well? Is this even
-%   appropriate for HOG?
-
-% Does one multiply by pca? Or what?
-% clfs = {fisherc, knnc, svc};
-% [error, std] = prcrossval(preprocessed * pca, clfs, 10, 10);
-% disp(error)
-% disp(std)
-
-% [error, ~, nlab_out] = prcrossval(preprocessed, fisherc, 10);
-% disp(error)
-% confmat(getnlab(preprocessed), nlab_out)
+% TODO: test libsvc
+% TODO: test different cell sizes
+% TODO: test different nr of PCA components (can't be done with clevalf
+%   since PCA is in classifier
 
 % Test various classifiers
-% features = {features_pca, features_hog};
-% classifiers = {svc, knnc, randomforestc};
-% [error, ~, labels_out] = prcrossval(features, classifiers, 5, 1);
-% disp(error)
+classifiers = {fisherc, knnc, svc};
+[error_pca, ~, out_pca] = prcrossval(preprocessed, u_pca * classifiers, ...
+    5, 1);
+[error_hog, ~, out_hog] = prcrossval(features_hog, classifiers, 5, 1);
+
+disp(error_pca)
+disp(error_hog)
 
 % Do classifier evaluation for various training set sizes
-% train_sizes = [10 20 100 200];
-% error_train_size = cleval(features, classifiers, train_sizes, 5);
-% figure
-% plote(error_train_size)
+train_sizes = [5 10 200 300];
+error_train_size_pca = cleval(preprocessed, u_pca * classifiers, ...
+    train_sizes, 5);
+error_train_size_hog = cleval(features_hog, classifiers, train_sizes, 5);
+
+figure('Name', 'Error train size PCA')
+plote(error_train_size_pca)
+figure('Name', 'Error train size HOG')
+plote(error_train_size_hog)
 
 % Do classifier evaluation for various feature set sizes
-% feat_size_pca = [1 5 10 50 80 100];
+% feat_size_pca = [1 10 50 100];
 % train_test_split = 0.7;
-% error_feat_size_pca = clevalf(features_pca, classifiers, feat_size_pca, train_test_split, 5);
-% figure
+% error_feat_size_pca = clevalf(preprocessed, u_pca * classifiers, ...
+%     feat_size_pca, train_test_split, 5);
+% 
+% figure('Name', 'Error feat size PCA')
 % plote(error_feat_size_pca)
-
-% Train SVM on HOG features
-classifier = svc(features_hog);
 
 %% Benchmark
 
-% Benchmark using all data
-bench_error = nist_eval('my_rep', classifier, 100);
-disp(bench_error)
+% Train SVMs
+classifier_hog = svc(features_hog);
+classifier_pca = preprocessed * (u_pca * svc);
 
+bench_error_hog = nist_eval('hog_rep', classifier_hog, 100);
+disp(bench_error_hog)
+
+bench_error_pca = nist_eval('pca_rep', classifier_pca, 100);
+disp(bench_error_pca)
+
+% Get datasets
+
+% Scenario 1
+
+% Scenario 2
