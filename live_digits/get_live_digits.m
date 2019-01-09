@@ -24,7 +24,7 @@ for i = 1:size(scan_files, 1)
     title(label{1})
     
     % Get info about what's in the image
-    scans{i, 2} = input('Does the image contain one digit class, and is the label correct (e.g. digit_0.jpg)? [yes/no] ', 's');
+    scans{i, 2} = input('Does the image contain one digit class, is it correctly oriented (i.e. upright) and is the label correct (e.g. digit_0.jpg)? [yes/no] ', 's');
     scans{i, 3} = label{1};
     scans{i, 4} = input('Number of objects in this image: ');
 end
