@@ -1,2 +1,5 @@
 # Ignore temporary MATLAB files
 *.asv
+
+# Test file for showing PRTools errors to David
+test_prtools.m

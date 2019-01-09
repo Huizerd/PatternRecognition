@@ -39,15 +39,13 @@ show(preprocessed)
 
 %% Feature extraction
 
-% TODO: check whether t_pca is equal to preprocessing * u_pca!
-
-% Get both untrained and trained PCA mapping
+% Get untrained PCA mapping and PCA visualization
 components = 100; % first 100 components
-[u_pca, t_pca] = get_pca(preprocessed, components, image_size);
+[u_pca, pca_vis] = get_pca(preprocessed, components, image_size);
 
 % Show eigendigits
 figure('Name', 'Eigendigits')
-show(t_pca)
+show(pca_vis)
 
 % Extract HOG features per image
 cell_size = [4 4];
