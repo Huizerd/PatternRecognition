@@ -7,120 +7,103 @@
 % Clear/close everything, set random seed
 clear; close all; clc
 rng('default')
-prwaitbar off
+
+% Increase max size of datasets (needed to load all objects)
+prmemory(100e6)
+
+% Add subfolders to path
+addpath(genpath(fileparts(which(mfilename))))
 
 % Add subfolders to path
 addpath(genpath(fileparts(which(mfilename))))
 
 %% Load data
 
-% Show some data, this will load digits 0-9 with 25 examples each
-sample = prnist(0:9, 1:40:1000);
-figure('Name', 'Sample')
-show(sample)
+% Load digits 0-9 with 25 examples each
+% sample = prnist(0:9, 1:40:1000);
+% figure('Name', 'Sample')
+% show(sample)
 
 % Now load all data
-% data = prnist(0:9, 1:1000);
+raw_data = prnist(0:9, 1:2:1000);
 
 %% Preprocess data
 
-% TODO: do we want to resize twice or only after deslanting?
-% TODO: do we want to binarize again after deslanting?
+% Images of 50x50 pixels, with 5 blank rows/columns
+image_size = [50 50];
+blanks = [5 5 5 5];
 
-% Make squares
-squared = im_box(sample, [5 5 5 5], 1);
-figure('Name', 'Square')
-show(squared)
+% Do preprocessing
+preprocessed = preprocessing(raw_data, image_size, blanks, true);
 
-% Resize to (50, 50)
-resized = im_resize(squared, [50 50]);
-figure('Name', 'Correct size')
-show(resized)
-
-% Convert to prdataset
-preprocessed = prdataset(resized);
-dummy = zeros(size(preprocessed));
-
-% Denoise and remove slant
-for i = 1:size(resized, 1)
-    clean = remove_noise(data2im(resized(i)));
-    straight = deslant(clean);
-    dummy(i, :) = reshape(im_resize(straight, [50 50]), 1, size(dummy, 2));
-end
-
-% Assign to prdataset
-preprocessed = setdata(preprocessed, dummy);
-
-figure('Name', 'Clean')
+% Show some
+figure('Name', 'Preprocessed')
 show(preprocessed)
 
+%% Feature extraction
 
-%% HOG feature classification
+% Get untrained PCA mapping and PCA visualization
+components = 100; % first 100 components
+[u_pca, pca_vis] = get_pca(preprocessed, components, image_size);
 
-%img = reshape(preprocessed.data(1,:), 50, 50);
-%[hog_2x2, vis2x2] = extractHOGFeatures(img,'CellSize',[2 2]);
-%[hog_3x3, vis3x3] = extractHOGFeatures(img,'CellSize',[3 3]);
-%[hog_4x4, vis4x4] = extractHOGFeatures(img,'CellSize',[4 4]);
-%[hog_8x8, vis8x8] = extractHOGFeatures(img,'CellSize',[8 8]);
-%[hog_16x16, vis16x16] = extractHOGFeatures(img,'CellSize',[16 16]);
-%[hog_25x25, vis25x25] = extractHOGFeatures(img,'CellSize',[25 25]);
+% Show eigendigits
+figure('Name', 'Eigendigits')
+show(pca_vis)
 
+% Extract HOG features per image
+cell_size = [4 4];
+features_hog = get_hog(preprocessed, cell_size);
 
-%hogFeatureSize = 36; cellSize = [25 25];
-%hogFeatureSize = 144; cellSize = [16 16];
-hogFeatureSize = 900; cellSize = [8 8];
-%hogFeatureSize = 4356; cellSize = [4 4];
-%hogFeatureSize = 8100; cellSize = [3 3];
-%hogFeatureSize = 20736; cellSize = [2 2];
+%% Classify
 
-[trainingSet, testSet, trainingIndices, testIndices] = gendat(preprocessed, 0.7);
+% TODO: test libsvc
+% TODO: test different cell sizes
+% TODO: test different nr of PCA components (can't be done with clevalf
+%   since PCA is in classifier
 
-numTrainingImages = size(trainingSet,1);
-trainingFeatures = zeros(numTrainingImages, hogFeatureSize, 'single');
-for i = 1:numTrainingImages
-    trainingFeatures(i, :) = extractHOGFeatures(reshape(trainingSet.data(i,:), 50, 50), 'CellSize', cellSize);  
-end
-trainingLabels = trainingSet.nlab;
-trainingFeatures = double(trainingFeatures);
-trainingFeatures = prdataset(trainingFeatures, trainingLabels);
+% Test various classifiers
+classifiers = {fisherc, knnc, svc};
+[error_pca, ~, out_pca] = prcrossval(preprocessed, u_pca * classifiers, ...
+    5, 1);
+[error_hog, ~, out_hog] = prcrossval(features_hog, classifiers, 5, 1);
 
-numTestImages = size(testSet,1);
-testFeatures = zeros(numTestImages, hogFeatureSize, 'single');
-for i = 1:numTestImages
-    testFeatures(i, :) = extractHOGFeatures(reshape(testSet.data(i,:), 50, 50), 'CellSize', cellSize);
-end
-testLabels = testSet.nlab;
-testFeatures = double(testFeatures);
-testFeatures = prdataset(testFeatures, testLabels);
+disp(error_pca)
+disp(error_hog)
 
+% Do classifier evaluation for various training set sizes
+train_sizes = [5 10 200 300];
+error_train_size_pca = cleval(preprocessed, u_pca * classifiers, ...
+    train_sizes, 5);
+error_train_size_hog = cleval(features_hog, classifiers, train_sizes, 5);
 
-%% Train a classifier
-classifier = bpxnc(trainingFeatures, [100 20], 10000);
+figure('Name', 'Error train size PCA')
+plote(error_train_size_pca)
+figure('Name', 'Error train size HOG')
+plote(error_train_size_hog)
 
+% Do classifier evaluation for various feature set sizes
+% feat_size_pca = [1 10 50 100];
+% train_test_split = 0.7;
+% error_feat_size_pca = clevalf(preprocessed, u_pca * classifiers, ...
+%     feat_size_pca, train_test_split, 5);
+% 
+% figure('Name', 'Error feat size PCA')
+% plote(error_feat_size_pca)
 
-%% Evaluate classifier
-clfdLabs = testFeatures * classifier * labeld;
-cm = confmat(testLabels, clfdLabs)
-testc(testFeatures, classifier)
+%% Benchmark
 
+% Train SVMs
+classifier_hog = svc(features_hog);
+classifier_pca = preprocessed * (u_pca * svc);
 
-%% Cross-validate
-allFeatures = [trainingFeatures; testFeatures];
-error = prcrossval(allFeatures, vpc, 5, 1)
+bench_error_hog = nist_eval('hog_rep', classifier_hog, 100);
+disp(bench_error_hog)
 
+bench_error_pca = nist_eval('pca_rep', classifier_pca, 100);
+disp(bench_error_pca)
 
-%% Visualize the HOG features
-figure; 
-subplot(2,3,1:3); imshow(img);
+% Get datasets
 
-subplot(2,3,4);  
-plot(vis2x2); 
-title({'CellSize = [2 2]'; ['Length = ' num2str(length(hog_2x2))]});
+% Scenario 1
 
-subplot(2,3,5);
-plot(vis4x4); 
-title({'CellSize = [4 4]'; ['Length = ' num2str(length(hog_4x4))]});
-
-subplot(2,3,6);
-plot(vis8x8); 
-title({'CellSize = [8 8]'; ['Length = ' num2str(length(hog_8x8))]});
+% Scenario 2
