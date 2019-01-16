@@ -25,7 +25,7 @@ addpath(genpath(fileparts(which(mfilename))))
 % show(sample)
 
 % Now load all data
-raw_data = prnist(0:9, 1:2:1000);
+raw_data = prnist(0:9, 1:100:1000);
 
 %% Preprocess data
 
@@ -43,7 +43,7 @@ show(preprocessed)
 %% Feature extraction
 
 % Get untrained PCA mapping and PCA visualization
-components = 100; % first 100 components
+components = 90; % first 100 components
 [u_pca, pca_vis] = get_pca(preprocessed, components, image_size);
 
 % Show eigendigits
@@ -51,13 +51,46 @@ figure('Name', 'Eigendigits')
 show(pca_vis)
 
 % Extract HOG features per image
-cell_size = [4 4];
+cell_size = [9 9];
 features_hog = get_hog(preprocessed, cell_size);
+
+%% Find the best HOG cell sizes for all classifiers.
+cell_sizes = [4:16];
+errors_hog = {};
+for i = cell_sizes
+    errors_hog{1, size(errors_hog, 2)+1} = [i i];
+    features_hog = get_hog(preprocessed, [i i]);
+    [error_hog, ~, out_hog] = prcrossval(features_hog, classifiers, 5, 1);
+    errors_hog{2, size(errors_hog, 2)} = error_hog;
+end
+
+values = errors_hog(2,:)
+lowest = [inf inf inf];
+best_cell_size = {};
+
+for i = 1:length(values)
+    p = values{i};
+    if p(1) < lowest(1)
+        lowest(1) = p(1);
+        best_cell_size{1} = errors_hog{1,i};
+    end
+    if p(2) < lowest(2)
+        lowest(2) = p(2);
+        best_cell_size{2} = errors_hog{1,i};
+    end
+    if p(3) < lowest(3)
+        lowest(3) = p(3);
+        best_cell_size{3} = errors_hog{1,i};
+    end
+end
+
+% Then call
+% features_hog = get_hog(preprocessed, cell_size);
+% with the best cell_size!!!
 
 %% Classify
 
 % TODO: test libsvc
-% TODO: test different cell sizes
 % TODO: test different nr of PCA components (can't be done with clevalf
 %   since PCA is in classifier
 
@@ -107,3 +140,8 @@ disp(bench_error_pca)
 % Scenario 1
 
 % Scenario 2
+
+
+
+
+

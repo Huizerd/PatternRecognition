@@ -21,7 +21,7 @@ preprocessed = preprocessing(raw_data, image_size, blanks, false);
 %% Feature extraction
 
 % Extract HOG features per image
-cell_size = [4 4];
+cell_size = [9 9];
 features = get_hog(preprocessed, cell_size);
 
 end
