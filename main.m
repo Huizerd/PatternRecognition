@@ -22,7 +22,7 @@ addpath(genpath(fileparts(which(mfilename))))
 % show(sample)
 
 % Now load all data
-raw_data = prnist(0:9, 1:2:1000);
+raw_data = prnist(0:9, 1:40:1000);
 
 %% Preprocess data
 
@@ -39,6 +39,8 @@ show(preprocessed)
 
 %% Feature extraction
 
+% TODO: try combination of HOG + PCA!
+
 % Get untrained PCA mapping and PCA visualization
 components = 100; % first 100 components
 [u_pca, pca_vis] = get_pca(preprocessed, components, image_size);
@@ -50,6 +52,11 @@ show(pca_vis)
 % Extract HOG features per image
 cell_size = [4 4];
 features_hog = get_hog(preprocessed, cell_size);
+
+% Combination of HOG and PCA, we don't bother with the visualization
+features_hog_large = get_hog(preprocessed, [8 8]);
+hog_size = [1 size(features_hog_large, 2)];
+[u_pca_hog, ~] = get_pca(features_hog_large, components, hog_size);
 
 %% Classify
 
@@ -63,9 +70,12 @@ classifiers = {fisherc, knnc, svc};
 [error_pca, ~, out_pca] = prcrossval(preprocessed, u_pca * classifiers, ...
     5, 1);
 [error_hog, ~, out_hog] = prcrossval(features_hog, classifiers, 5, 1);
+[error_pca_hog, ~, out_pca_hog] = prcrossval(features_hog_large, ...
+    u_pca_hog * classifiers, 5, 1);
 
 disp(error_pca)
 disp(error_hog)
+disp(error_pca_hog)
 
 % Do classifier evaluation for various training set sizes
 train_sizes = [5 10 200 300];
