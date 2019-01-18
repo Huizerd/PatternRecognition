@@ -14,15 +14,17 @@ prmemory(100e6)
 % Add subfolders to path
 addpath(genpath(fileparts(which(mfilename))))
 
+% Add subfolders to path
+addpath(genpath(fileparts(which(mfilename))))
+
 %% Load data
 
 % Load digits 0-9 with 25 examples each
-% sample = prnist(0:9, 1:40:1000);
-% figure('Name', 'Sample')
-% show(sample)
+raw_data = prnist(0:9, 1:100:1000);
 
-% Now load all data
-raw_data = prnist(0:9, 1:40:1000);
+% Show data
+% figure('Name', 'Data')
+% show(raw_data)
 
 %% Preprocess data
 
@@ -39,8 +41,6 @@ show(preprocessed)
 
 %% Feature extraction
 
-% TODO: try combination of HOG + PCA!
-
 % Get untrained PCA mapping and PCA visualization
 components = 100; % first 100 components
 [u_pca, pca_vis] = get_pca(preprocessed, components, image_size);
@@ -53,40 +53,39 @@ show(pca_vis)
 cell_size = [4 4];
 features_hog = get_hog(preprocessed, cell_size);
 
-% Combination of HOG and PCA, we don't bother with the visualization
+% Combination of HOG and PCA, larger cell size to allow PCA to capture more
+%   global features instead of noise
 features_hog_large = get_hog(preprocessed, [8 8]);
 hog_size = [1 size(features_hog_large, 2)];
-[u_pca_hog, ~] = get_pca(features_hog_large, components, hog_size);
+[u_hog_pca, ~] = get_pca(features_hog_large, components, hog_size);
 
-%% Classify
+%% Cross-validation
 
-% TODO: test libsvc
-% TODO: test different cell sizes
-% TODO: test different nr of PCA components (can't be done with clevalf
-%   since PCA is in classifier
+% Test various classifiers: k-NN and SVC need scaling!
+classifiers_pca = {fisherc, knnc, libsvc}; % since PCA already has scaling
+classifiers_hog = {fisherc, scalem('variance') * knnc, ...
+    scalem('variance') * libsvc};
 
-% Test various classifiers
-classifiers = {fisherc, knnc, svc};
-[error_pca, ~, out_pca] = prcrossval(preprocessed, u_pca * classifiers, ...
+[error_pca, ~, ~] = prcrossval(preprocessed, u_pca * classifiers_pca, ...
     5, 1);
-[error_hog, ~, out_hog] = prcrossval(features_hog, classifiers, 5, 1);
-[error_pca_hog, ~, out_pca_hog] = prcrossval(features_hog_large, ...
-    u_pca_hog * classifiers, 5, 1);
+[error_hog, ~, ~] = prcrossval(features_hog, classifiers_hog, 5, 1);
+[error_hog_pca, ~, ~] = prcrossval(features_hog_large, ...
+    u_hog_pca * classifiers_pca, 5, 1);
 
 disp(error_pca)
 disp(error_hog)
-disp(error_pca_hog)
+disp(error_hog_pca)
 
 % Do classifier evaluation for various training set sizes
-train_sizes = [5 10 200 300];
-error_train_size_pca = cleval(preprocessed, u_pca * classifiers, ...
-    train_sizes, 5);
-error_train_size_hog = cleval(features_hog, classifiers, train_sizes, 5);
-
-figure('Name', 'Error train size PCA')
-plote(error_train_size_pca)
-figure('Name', 'Error train size HOG')
-plote(error_train_size_hog)
+% train_sizes = [5 10 200 300];
+% error_train_size_pca = cleval(preprocessed, u_pca * classifiers, ...
+%     train_sizes, 5);
+% error_train_size_hog = cleval(features_hog, classifiers, train_sizes, 5);
+% 
+% figure('Name', 'Error train size PCA')
+% plote(error_train_size_pca)
+% figure('Name', 'Error train size HOG')
+% plote(error_train_size_hog)
 
 % Do classifier evaluation for various feature set sizes
 % feat_size_pca = [1 10 50 100];
@@ -97,11 +96,47 @@ plote(error_train_size_hog)
 % figure('Name', 'Error feat size PCA')
 % plote(error_feat_size_pca)
 
+%% Feature set validation: HOG cell sizes
+
+% cell_sizes = [4:16];
+% errors_hog = {};
+% for i = cell_sizes
+%     errors_hog{1, size(errors_hog, 2)+1} = [i i];
+%     features_hog = get_hog(preprocessed, [i i]);
+%     [error_hog, ~, ~] = prcrossval(features_hog, classifiers_hog, 5, 1);
+%     errors_hog{2, size(errors_hog, 2)} = error_hog;
+% end
+% 
+% values = errors_hog(2,:);
+% lowest = [inf inf inf];
+% best_cell_size = {};
+% 
+% for i = 1:length(values)
+%     p = values{i};
+%     if p(1) < lowest(1)
+%         lowest(1) = p(1);
+%         best_cell_size{1} = errors_hog{1,i};
+%     end
+%     if p(2) < lowest(2)
+%         lowest(2) = p(2);
+%         best_cell_size{2} = errors_hog{1,i};
+%     end
+%     if p(3) < lowest(3)
+%         lowest(3) = p(3);
+%         best_cell_size{3} = errors_hog{1,i};
+%     end
+% end
+
+% Then call
+% features_hog = get_hog(preprocessed, cell_size);
+% with the best cell_size!!!
+
 %% Benchmark
 
-% Train SVMs
-classifier_hog = svc(features_hog);
-classifier_pca = preprocessed * (u_pca * svc);
+% Train SVM
+classifier_hog = libsvc(features_hog);
+classifier_pca = preprocessed * (u_pca * libsvc);
+classifier_hog_pca = features_hog_large * (u_hog_pca * libsvc);
 
 bench_error_hog = nist_eval('hog_rep', classifier_hog, 100);
 disp(bench_error_hog)
@@ -109,8 +144,16 @@ disp(bench_error_hog)
 bench_error_pca = nist_eval('pca_rep', classifier_pca, 100);
 disp(bench_error_pca)
 
+bench_error_hog_pca = nist_eval('combined_rep', classifier_hog_pca, 100);
+disp(bench_error_hog_pca)
+
 % Get datasets
 
 % Scenario 1
 
 % Scenario 2
+
+
+
+
+
