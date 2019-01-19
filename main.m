@@ -25,7 +25,8 @@ addpath(genpath(fileparts(which(mfilename))))
 % show(sample)
 
 % Now load all data
-raw_data = prnist(0:9, 1:100:1000);
+raw_data = gendat(prnist(0:9), 10*ones(10,1)); 
+%raw_data = prnist(0:9, 1:100:1000);
 
 %% Preprocess data
 
@@ -54,39 +55,139 @@ show(pca_vis)
 cell_size = [9 9];
 features_hog = get_hog(preprocessed, cell_size);
 
-%% Find the best HOG cell sizes for all classifiers.
-cell_sizes = [4:16];
-errors_hog = {};
-for i = cell_sizes
-    errors_hog{1, size(errors_hog, 2)+1} = [i i];
-    features_hog = get_hog(preprocessed, [i i]);
-    [error_hog, ~, out_hog] = prcrossval(features_hog, classifiers, 5, 1);
-    errors_hog{2, size(errors_hog, 2)} = error_hog;
+%% Variables
+
+classifiers_pca = {fisherc,knnc,svc,libsvc};
+classifiers_hog = {fisherc, scalem('variance') * knnc, ...
+    scalem('variance') * svc, scalem('variance') * libsvc};
+
+cell_sizes = 6:1:14; % cell sizes for HOG
+components  = 10:10:90; % # pca components
+nf = 5; % # folds 
+
+%% Find the best combination of HOG cell size and number of PCA components 
+%  based on cross-validation
+
+lowest = [inf inf inf inf]; 
+best_cell_sizes = {};
+best_comps = [0 0 0 0];
+
+errors = cell(4,1);
+errors{1} = zeros(length(components)+1, size(cell_sizes,2)+1); % fisherc
+errors{2} = zeros(length(components)+1, size(cell_sizes,2)+1); % knnc
+errors{3} = zeros(length(components)+1, size(cell_sizes,2)+1); % svc
+errors{4} = zeros(length(components)+1, size(cell_sizes,2)+1); % libsvc
+
+% fill matrix column by column 
+
+% now based on small dataset         
+for i = 1:size(cell_sizes,2) 
+    cell_size = cell_sizes(i); 
+    features_hog = get_hog(preprocessed, [cell_size, cell_size]);
+    for c = 1:length(components)
+        comps = components(c);
+        
+        % do pca on preprocessed, fill eastest column
+        if i == size(cell_sizes, 2) 
+            [u_map, ~] = get_pca(preprocessed, comps, image_size);
+            error_pca = prcrossval(preprocessed,...
+                u_map * classifiers_pca, nf, 1);
+            errors{1}(c, i+1) = error_pca(1);
+            errors{2}(c, i+1) = error_pca(2);
+            errors{3}(c, i+1) = error_pca(3);
+            errors{4}(c, i+1) = error_pca(4);
+            
+            % update results
+            [lowest, best_cell_sizes, best_comps] = updateResults(...
+                error_pca, comps, 0, lowest, best_cell_sizes, best_comps); 
+        end
+        
+        [u_map, ~] = get_pca(features_hog, comps, image_size);
+        error_hog_pca = prcrossval(features_hog,...
+            u_map * classifiers_pca, nf, 1);
+        errors{1}(c, i) = error_hog_pca(1); % fill error-matrices
+        errors{2}(c, i) = error_hog_pca(2);
+        errors{3}(c, i) = error_hog_pca(3);
+        errors{4}(c, i) = error_hog_pca(4);
+        [lowest, best_cell_sizes, best_comps] = updateResults(...
+                error_hog_pca, comps, cell_size, lowest,...
+                best_cell_sizes, best_comps); 
+    end
+    
+    % do only HOG, no pca
+    % fill southest row
+    error_hog = prcrossval(features_hog, classifiers_hog, nf, 1);
+    errors{1}(c+1, i) = error_hog(1); % errors w.o pca, just HOG    
+    errors{2}(c+1, i) = error_hog(2);    
+    errors{3}(c+1, i) = error_hog(3);
+    errors{4}(c+1, i) = error_hog(4);
+    
+    [lowest, best_cell_sizes, best_comps] = updateResults(...
+                error_hog, 0, cell_size, lowest, best_cell_sizes,...
+                best_comps);  
 end
 
-values = errors_hog(2,:)
-lowest = [inf inf inf];
-best_cell_size = {};
+%% Show result 
 
-for i = 1:length(values)
-    p = values{i};
-    if p(1) < lowest(1)
-        lowest(1) = p(1);
-        best_cell_size{1} = errors_hog{1,i};
-    end
-    if p(2) < lowest(2)
-        lowest(2) = p(2);
-        best_cell_size{2} = errors_hog{1,i};
-    end
-    if p(3) < lowest(3)
-        lowest(3) = p(3);
-        best_cell_size{3} = errors_hog{1,i};
-    end
+% append labels to error-matrices
+for i = 1:length(errors)
+    errorMatrix = errors{i};
+    errorMatrix = [[cell_sizes 0]; errorMatrix];
+    errorMatrix = [[nan, components, 0]' ,errorMatrix];
+    errorMatrix(size(errorMatrix,1), size(errorMatrix,1)) = nan;
+    errors{i} = errorMatrix;
 end
 
-% Then call
-% features_hog = get_hog(preprocessed, cell_size);
-% with the best cell_size!!!
+errors_fisherc = errors{1};
+errors_knnc = errors{2};
+errors_svc = errors{3};
+errors_libsvc = errors{4};
+
+% show error matrices
+disp('Errors: fisherc')
+disp('row: components, col: cell size')
+disp(errors_fisherc)
+disp('Errors: knnc')
+disp('row: components, col: cell size')
+disp(errors_knnc)
+disp('Errors: svc')
+disp('row: components, col: cell size')
+disp(errors_svc);
+disp('Errors: libsvc')
+disp('row: components, col: cell size')
+disp(errors_libsvc);
+
+% show best settings
+disp('best comps')
+disp(['fisherc',' ', 'knnc',' ', 'svc', ' ' ,'libsvc'])
+disp(best_comps)
+disp('best cell sizes:')
+disp(['fisherc',' ', 'knnc',' ', 'svc', ' ' ,'libsvc'])
+disp(best_cell_sizes)
+disp('best errors')
+disp(['fisherc',' ', 'knnc',' ', 'svc', ' ' ,'libsvc'])
+disp(lowest)
+
+%% Variables for testing 
+
+global best_cell_size;
+best_cell_size = 12; % for svc
+
+best_comp = 70; % for svc
+% Right order of attachment of mappings? 
+
+u_map_small = scalem('variance')*pcam(best_comp);
+u_map_big = scalem('variance')*pcam(best_comp);
+
+%% Small - benchmark
+
+hog_features_small = get_hog(preprocessed_small,[best_cell_size,...
+    best_cell_size]);
+
+w_small = hog_features_small * (u_map_small*svc);
+
+bench_error_hog_small = nist_eval('hog_pca_rep', w_small, 100);
+disp(bench_error_hog_small)
 
 %% Classify
 
