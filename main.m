@@ -20,17 +20,14 @@ addpath(genpath(fileparts(which(mfilename))))
 %% Load data
 
 % Load digits 0-9 with 25 examples each
-<<<<<<< HEAD
 % sample = prnist(0:9, 1:40:1000);
 % figure('Name', 'Sample')
 % show(sample)
 
 % Now load all data
-raw_data = gendat(prnist(0:9), 10*ones(10,1)); 
+raw_data = gendat(prnist(0:9), 50*ones(10,1)); 
 %raw_data = prnist(0:9, 1:100:1000);
-=======
-raw_data = prnist(0:9, 1:100:1000);
->>>>>>> 39bd137e8f9c175ffcd4645bd169fbf7b873a107
+%raw_data = prnist(0:9, 1:100:1000);
 
 % Show data
 % figure('Name', 'Data')
@@ -63,16 +60,20 @@ show(pca_vis)
 cell_size = [4 4];
 features_hog = get_hog(preprocessed, cell_size);
 
-<<<<<<< HEAD
 %% Variables
 
 classifiers_pca = {fisherc,knnc,svc,libsvc};
 classifiers_hog = {fisherc, scalem('variance') * knnc, ...
-    scalem('variance') * svc, scalem('variance') * libsvc};
+    scalem('variance') * svc, scalem('variance') * libsvc}; 
+% should we really do scaling? better results?
 
-cell_sizes = 6:1:14; % cell sizes for HOG
-components  = 10:10:90; % # pca components
+cell_sizes = 6:14; % cell sizes for HOG
+components  = [10:10:90]; % # pca components... maybe more comps
 nf = 5; % # folds 
+
+%% Try classifiers on just preprocessed
+
+error = prcrossval(preprocessed, scalem('variance')*classifiers_pca, nf, 1);
 
 %% Find the best combination of HOG cell size and number of PCA components 
 %  based on cross-validation
@@ -89,8 +90,10 @@ errors{4} = zeros(length(components)+1, size(cell_sizes,2)+1); % libsvc
 
 % fill matrix column by column 
 
-% now based on small dataset         
+% now based on small dataset
 for i = 1:size(cell_sizes,2) 
+    disp('i=')
+    disp(i)
     cell_size = cell_sizes(i); 
     features_hog = get_hog(preprocessed, [cell_size, cell_size]);
     for c = 1:length(components)
@@ -136,6 +139,43 @@ for i = 1:size(cell_sizes,2)
                 best_comps);  
 end
 
+%% Just use HOG
+%  based on cross-validation
+
+lowest = [inf inf inf inf]; 
+best_cell_sizes = {};
+best_comps = [0 0 0 0];
+
+errors = cell(4,1);
+errors{1} = zeros(size(cell_sizes,2),1); % fisherc
+errors{2} = zeros(size(cell_sizes,2),1); % knnc
+errors{3} = zeros(size(cell_sizes,2),1); % svc
+errors{4} = zeros(size(cell_sizes,2),1); % libsvc
+
+% fill matrix column by column 
+for i = 1:size(cell_sizes,2) 
+    cell_size = cell_sizes(i); 
+    features_hog = get_hog(preprocessed, [cell_size, cell_size]);
+    
+    error_hog = prcrossval(features_hog, classifiers_hog, nf, 1);
+    errors{1}(i) = error_hog(1); % errors w.o pca, just HOG    
+    errors{2}(i) = error_hog(2);    
+    errors{3}(i) = error_hog(3);
+    errors{4}(i) = error_hog(4);
+    
+    [lowest, best_cell_sizes, best_comps] = updateResults(...
+                error_hog, 0, cell_size, lowest, best_cell_sizes,...
+                best_comps);  
+end
+
+
+for i = 1:length(errors)
+    errors{i} = [cell_sizes;(errors{i})'];
+    disp(errors{i})
+end
+
+
+
 %% Show result 
 
 % append labels to error-matrices
@@ -166,6 +206,9 @@ disp('Errors: libsvc')
 disp('row: components, col: cell size')
 disp(errors_libsvc);
 
+
+%%
+
 % show best settings
 disp('best comps')
 disp(['fisherc',' ', 'knnc',' ', 'svc', ' ' ,'libsvc'])
@@ -180,9 +223,9 @@ disp(lowest)
 %% Variables for testing 
 
 global best_cell_size;
-best_cell_size = 12; % for svc
+best_cell_size = 8; % for svc
 
-best_comp = 70; % for svc
+best_comp = 80; % for libsvc
 % Right order of attachment of mappings? 
 
 u_map_small = scalem('variance')*pcam(best_comp);
@@ -190,14 +233,24 @@ u_map_big = scalem('variance')*pcam(best_comp);
 
 %% Small - benchmark
 
-hog_features_small = get_hog(preprocessed_small,[best_cell_size,...
+hog_features_small = get_hog(preprocessed,[best_cell_size,...
     best_cell_size]);
 
-w_small = hog_features_small * (u_map_small*svc);
+w_small = hog_features_small * (u_map_small*libsvc);
 
-bench_error_hog_small = nist_eval('hog_pca_rep', w_small, 100);
-disp(bench_error_hog_small)
-=======
+%% plot for smaller data 
+
+r = cleval(hog_features_small, u_map_small*libsvc, 10:10:60,5);
+plote(r);
+
+%r2 = clevalf(hog_features_small, u_map_small*libsvc, 10:10:50,1);
+%figure
+%plote(r2)
+%bench_error_hog_small = nist_eval('hog_pca_rep', w_small, 100);
+%disp(bench_error_hog_small)
+
+%%
+
 % Combination of HOG and PCA, larger cell size to allow PCA to capture more
 %   global features instead of noise
 features_hog_large = get_hog(preprocessed, [8 8]);
@@ -205,7 +258,6 @@ hog_size = [1 size(features_hog_large, 2)];
 [u_hog_pca, ~] = get_pca(features_hog_large, components, hog_size);
 
 %% Cross-validation
->>>>>>> 39bd137e8f9c175ffcd4645bd169fbf7b873a107
 
 % Test various classifiers: k-NN and SVC need scaling!
 classifiers_pca = {fisherc, knnc, libsvc}; % since PCA already has scaling
