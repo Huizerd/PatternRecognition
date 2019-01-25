@@ -179,29 +179,30 @@ disp('best errors')
 disp(['fisherc',' ', 'knnc',' ', 'svc', ' ' ,'libsvc'])
 disp(lowest)
 
-%% Variables for testing 
-global best_cell_size;
-
-best_cell_size = 8; % for all
-best_comp = 0; % for fisherc
-
-u_map = scalem('variance');%*pcam(best_comp);
-
-%% Learn classifiers based on best settings
+% TESTING!
+%% Get features
 
 hog_features = get_hog(preprocessed,[best_cell_size,...
     best_cell_size]);
-%% Classifier
-w = hog_features * (u_map*svc);
+%% Best settings
+
+global best_cell_size;
+
+best_cell_size = 8; % for all
+best_comp = 0; % for svc
+
+u_map = scalem('variance');%*pcam(best_comp);
+w = hog_features * (u_map*svc); % get classifier 
 
 %% Benchmark
 
-test_sizes = 10:10:100;
+test_sizes = 100
 result = [];
 for i = 1:length(test_sizes)
     bench_error = nist_eval('combined_rep', w, test_sizes(i));
     result = [result bench_error];
 end
+result;
 
 %% Learning curves
 
