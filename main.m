@@ -175,7 +175,8 @@ train_sizes = [5 10 50 100 200];
 [preprocessed_500, ~, ~, ~] = gendat(preprocessed, ones(1, 10) * 500);
 
 % Fisher
-features_fisher = get_hog(preprocessed_500, best_cell_size(1));
+features_fisher = get_hog(preprocessed_500, ...
+    [best_cell_size(1) best_cell_size(1)]);
 comp_fisher = best_comp{1};
 for i = 1:length(comp_fisher)
     if comp_fisher(i) ~= 0
@@ -194,7 +195,8 @@ plote(e_train_fisher)
 set(gca, 'XScale', 'linear')
 
 % k-NN
-features_knn = get_hog(preprocessed, best_cell_size(2));
+features_knn = get_hog(preprocessed, ...
+    [best_cell_size(2) best_cell_size(2)]);
 [pca_knn, ~] = get_pca(features_knn, best_comp{2}, ...
     [1 size(features_knn, 2)]);
 e_train_knn = cleval(features_knn, pca_knn * knnc, train_sizes, 5);
@@ -204,7 +206,8 @@ plote(e_train_knn)
 set(gca, 'XScale', 'linear')
 
 % SVC (svc)
-features_svc = get_hog(preprocessed, best_cell_size(3));
+features_svc = get_hog(preprocessed, ...
+    [best_cell_size(3) best_cell_size(3)]);
 e_train_svc = cleval(features_svc, scalem('variance') * svc, ...
     train_sizes, 5);
 
@@ -213,7 +216,8 @@ plote(e_train_svc)
 set(gca, 'XScale', 'linear')
 
 % SVC (libsvc)
-features_libsvc = get_hog(preprocessed,  best_cell_size(4));
+features_libsvc = get_hog(preprocessed, ...
+    [best_cell_size(4) best_cell_size(4)]);
 [pca_libsvc, ~] = get_pca(features_libsvc, best_comp{4}, ...
     [1 size(features_libsvc, 2)]);
 e_train_libsvc = cleval(features_libsvc, pca_libsvc * libsvc, ...
@@ -262,22 +266,24 @@ for i = 1:length(bench_sizes)
     for j = 1:length(bench_clfs_base)
         [pca_bench, ~] = get_pca(features_bench, best_comp(j), ...
             [1 size(features_bench, 2)]);
-        bench_clfs_untrained{1, i*j} = pca_bench * bench_clfs_base{j});
+        bench_clfs_untrained{1, i*j} = pca_bench * bench_clfs_base{j};
         bench_clfs_trained{1, i*j} = features_bench * ...
             (pca_bench * bench_clfs_base{j});
     end
 end
         
 % Get benchmark error
-bench_error = nist_eval('combined_rep', bench_clfs_trained, 100);
-disp(bench_error)
+for w = bench_clfs_trained
+    bench_error = nist_eval('combined_rep', w{1}, 100);
+    disp(bench_error)
+end
 
 %% Live classification
 
 % Train on 200
 [preprocessed_200, ~, ~, ~] = gendat(preprocessed, ones(1, 10) * 200);
-features_200 = get_hog(preprocessed_200, best_cell_size);
-live_clfs_trained = features_200 * bench_clfs_untrained{4:6};
+features_200 = get_hog(preprocessed_200, [best_cell_size best_cell_size]);
+live_clfs_trained = features_200 * bench_clfs_untrained(4:6);
 
 % Hard-coded answers to questions the script will ask
 n_digits = [75 77 80 77 83 85 80 89 90 88];
@@ -290,7 +296,7 @@ figure('Name', 'Live digits')
 show(live_data)
 
 % Feature extraction
-features_live = get_hog(live_data, best_cell_size);
+features_live = get_hog(live_data, [best_cell_size best_cell_size]);
 
 % Classify
 error_live = features_live * live_clfs_trained * testc;
@@ -302,8 +308,8 @@ confmat(features_live * live_clfs_trained{3});
 % Do classifier evaluation for various training set sizes
 train_sizes = [5 10 50 100 200];
 [preprocessed_250, ~, ~, ~] = gendat(preprocessed, ones(1, 10) * 250);
-features_250 = get_hog(preprocessed_250, best_cell_size);
-e_train_size_live = cleval(features_250, bench_clfs_untrained{4:6}, train_sizes, 5, ...
+features_250 = get_hog(preprocessed_250, [best_cell_size best_cell_size]);
+e_train_size_live = cleval(features_250, bench_clfs_untrained(4:6), train_sizes, 5, ...
     features_live);
 
 figure('Name', 'Error train size live digits')
