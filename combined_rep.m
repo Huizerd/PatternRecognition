@@ -10,6 +10,8 @@ function features = combined_rep(raw_data)
 %
 % Jesse Hagenaars - 30.12.2018
 
+global best_cell_size
+
 %% Preprocess data
 
 % Images of 50x50 pixels, with 5 blank rows/columns
@@ -22,8 +24,9 @@ preprocessed = preprocessing(raw_data, image_size, blanks, false);
 %% Feature extraction
 
 % Extract HOG features per image
-cell_size = [8 8];
-features_hog = get_hog(preprocessed, cell_size);
+%cell_size = [8 8];
+%features_hog = get_hog(preprocessed, cell_size);
+features_hog = get_hog(preprocessed, [best_cell_size best_cell_size]);
 
 % PCA mapping is part of the trained classifier!
 features = features_hog;

@@ -9,6 +9,8 @@ function features = hog_rep(raw_data)
 %
 % Jesse Hagenaars - 30.12.2018
 
+global best_cell_size
+
 %% Preprocess data
 
 % Images of 50x50 pixels, with 5 blank rows/columns
@@ -21,7 +23,6 @@ preprocessed = preprocessing(raw_data, image_size, blanks, false);
 %% Feature extraction
 
 % Extract HOG features per image
-cell_size = [4 4];
-features = get_hog(preprocessed, cell_size);
+features = get_hog(preprocessed, [best_cell_size best_cell_size]);
 
 end

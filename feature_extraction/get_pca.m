@@ -15,14 +15,19 @@ function [u_mapping, pca_vis] = get_pca(preprocessed, components, ...
 %
 % Jesse Hagenaars - 02.01.2010
 
-% Create untrained mapping
-u_mapping = scalem('variance') * pcam(components);
+if components == 0
+    u_mapping = scalem('variance');
+    pca_vis = 1;
+else
+    % Create untrained mapping
+    u_mapping = scalem('variance') * pcam(components);
 
-% Create trained mapping for visualization purposes only, since it is
-%   technically not correct. Doing "pca_vis = scaling * pca_vis" would give
-%   same results as using "preprocessed * u_mapping"
-scaling = scalem(preprocessed, 'variance');
-pca_vis = (preprocessed * scaling) * pcam(components);
-pca_vis.size_in = [image_size 1];
+    % Create trained mapping for visualization purposes only, since it is
+    %   technically not correct. Doing "pca_vis = scaling * pca_vis" would give
+    %   same results as using "preprocessed * u_mapping"
+    scaling = scalem(preprocessed, 'variance');
+    pca_vis = (preprocessed * scaling) * pcam(components);
+    pca_vis.size_in = [image_size 1];
+end
 
 end
