@@ -11,7 +11,7 @@ function preprocessed = preprocessing(raw_data, image_size, ...
 % Outputs:
 % - preprocessed: prdataset containing the preprocessed images
 %
-% Jesse Hagenaars - 02.01.2019
+% . - 02.01.2019
 
 % Make squares, denoise, remove slant, do cropping, resize
 prep_map = raw_data * im_box(blanks, 1) * filtim('remove_noise') * ...

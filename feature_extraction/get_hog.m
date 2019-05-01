@@ -8,7 +8,7 @@ function features = get_hog(preprocessed, cell_size)
 % Outputs:
 % - features: prdataset containing the extracted HOG features
 %
-% Jesse Hagenaars - 02.01.2010
+% . - 02.01.2010
 
 % Extract HOG features per image
 features = preprocessed * filtim('extractHOGFeatures', ...

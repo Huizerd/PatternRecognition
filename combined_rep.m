@@ -8,7 +8,7 @@ function features = combined_rep(raw_data)
 % Outputs:
 % - features: prdataset containing the extracted features
 %
-% Jesse Hagenaars - 30.12.2018
+% . - 30.12.2018
 
 global best_cell_size
 

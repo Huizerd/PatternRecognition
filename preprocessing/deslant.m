@@ -9,7 +9,7 @@ function deslanted = deslant(slanted)
 % Outputs:
 % - deslanted: deslanted image, matrix of doubles
 %
-% Jesse Hagenaars - 09.12.2018
+% . - 09.12.2018
 
 % Get central image moments
 moments = im_moments(slanted, 'central');

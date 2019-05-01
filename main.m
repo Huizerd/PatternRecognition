@@ -1,7 +1,7 @@
 % Final Assignment IN4085 Pattern Recognition
 % Digit Classification
 %
-% Group 94: Olle Eriksson, Jesse Hagenaars, Ilmari Vikstrom
+% Group 94: Olle Eriksson, ., Ilmari Vikstrom
 % 05-12-2018
 
 % Clear/close everything, set random seed

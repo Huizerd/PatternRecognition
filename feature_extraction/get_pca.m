@@ -13,7 +13,7 @@ function [u_mapping, pca_vis] = get_pca(preprocessed, components, ...
 % - pca_vis: prmapping containing the trained PCA mapping (only for
 %   visualization purposes!)
 %
-% Jesse Hagenaars - 02.01.2010
+% . - 02.01.2010
 
 if components == 0
     u_mapping = scalem('variance');

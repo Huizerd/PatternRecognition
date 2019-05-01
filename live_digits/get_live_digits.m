@@ -11,7 +11,7 @@ function live_digits = get_live_digits(scan_dir, image_size, n_digits)
 % Outputs:
 % - live_digits: prdataset of separate binarized digits
 %
-% Jesse Hagenaars - 25.12.2018
+% . - 25.12.2018
 
 % Load scans and collect info
 scan_files = dir([scan_dir '*.jpg']);
